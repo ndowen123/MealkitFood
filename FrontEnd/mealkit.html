@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Purchase</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <h1>Mealkit Food Ingredient Store</h1>
+            <div class="menu">
+                <div v-for="food in foods" class="menu-item" :data-id="food.id">
+                    <img :src="food.image" class="menu-item-image" alt="Green cabbage" style="width: 200px;">
+                    <h3>{{ food.name }}</h3>
+                    <p>{{ food.price_per_unit }}</p>
+                    <button class="add-to-cart" v-on:click="addToCart(food)">Add to Cart</button>
+                </div>
+            </div>
+            <div class="cart">
+                <h2>Shopping Cart</h2>
+                
+                <ul id="cart-items">
+                    <li v-for="cart in carts">{{ cart.name }} - x {{ cart.qty }} - {{ cart.qty * cart.price_per_unit }}</li>
+                </ul>
+                <div>
+                    <label>Customer<label> <br>
+                    <select id="customer" name="customer" v-model="input.customer" v-on:change="selectCustomer(input.customer)">
+                        <option selected>Select for the customer</option>
+                        <option :value="customer" v-for="customer in customers">{{ customer ? customer.name + ' - ' + customer.email : '' }}</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Delivery address<label> <br>
+                    <input type="text" name="delivery_address" v-model="input.delivery_address"/>
+                </div>
+                <div>
+                    <label>Payment method<label> <br>
+                    <select id="payment_method" name="payment_method" v-model="input.payment_method">
+                        <option selected>Select for the payment method</option>
+                        <option :value="payment" v-for="payment in payments">{{ payment }}</option>
+                    </select>
+                </div>
+                <p>Total: <span id="cart-total">{{ totalPrice }}</span></p>
+                <button id="checkout" v-on:click="checkOut">Checkout</button>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+    <script>
+        var app = new Vue({
+            el: '#app',
+            data: {
+                foods: [],
+                carts: [],
+                customers: [],
+                payments: ['Cash', 'Bank Transfer'],
+                input: {
+                    customer: null,
+                    delivery_address: "",
+                    payment_method: null
+                }
+            },
+            created(){
+                this.getFood()
+                this.getCustomer()
+            },
+             computed: {
+                totalPrice: function (){
+                    return this.carts.reduce((acc, curr) => {
+                        return acc + curr.qty * curr.price_per_unit;
+                    }, 0);
+                }
+             },
+             methods: {
+                getFood: function () {
+                    fetch("http://localhost:3000/foodingredients", {
+                        method: 'GET'
+                    })
+                    .then((response) => response.text())
+                    .then((result) => {
+                        const data = JSON.parse(result)
+                        this.foods = data
+                    })
+                    .catch((error) => console.error(error));
+                },
+                getCustomer: function () {
+                    fetch("http://localhost:3000/Customer", {
+                        method: 'GET'
+                    })
+                    .then((response) => response.text())
+                    .then((result) => {
+                        const data = JSON.parse(result)
+                        this.customers = data
+                    })
+                    .catch((error) => console.error(error));
+                },
+                addToCart: function (food) {
+                    if(this.carts.filter(x => x._id == food._id).length == 0){
+                        this.carts.push({ qty: 1, _id: food._id, price_per_unit: food.price_per_unit, name: food.name})
+                    }else{
+                        const index = this.carts.findIndex(x => x._id == food._id)
+                        this.carts[index].qty = this.carts[index].qty + 1
+                    }
+                },
+                selectCustomer: function (customer) {
+                    this.input.delivery_address = customer.customer_addr
+                },
+                checkOut: function () {
+                    if(this.carts.length == 0){
+                        alert('Carts should not be empty')
+                    }
+
+                    if(this.input.customer == null || this.input.payment_method == null){
+                        alert('Customer and payment method should not be empty')
+                    }
+                    const raw = JSON.stringify({
+                        customer_id: this.input.customer._id,
+                        items: this.carts.map(cart => {
+                            return {
+                                food_ingredient: cart.name,
+                                quantity: cart.qty,
+                                price_per_unit: cart.price_per_unit
+                            }
+                        }),
+                        total_price: this.totalPrice,
+                        status: "pending",
+                        delivery_address: this.input.delivery_address,
+                        payment_method: this.input.payment_method
+                    });
+
+                    fetch("http://localhost:3000/order", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: raw
+                    })
+                    .then((response) => {
+                        if (response.status == 201) {
+                            alert('Order is succesfull')
+                            this.input = {
+                                customer: null,
+                                delivery_address: ""
+                            }
+                            this.carts = []
+                        }
+                        console.log(response.text())
+                    })
+                    .catch((error) => console.error(error));
+            }
+            },
+        })
+    </script>
+    <!-- <script src="interact.js"></script> -->
+</body>
+</html>

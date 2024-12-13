@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Interface</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .action-btn {
+            cursor: pointer;
+            color: blue;
+            text-decoration: underline;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 300px;
+            text-align: center;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <h1>Order</h1>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Total Amount</th>
+                        <th>Payment Method</th>
+                        <th>Payment Status</th>
+                        <th>Payment Date</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="order in orders" :keys="order._id">
+                        <td>{{ order.customer.name }}</td>
+                        <td>{{ order.total_price }}</td>
+                        <td>{{ order.payment.payment_method }}</td>
+                        <td>{{ order.payment.status }}</td>
+                        <td>{{ order.payment.payment_date }}</td>
+                        <td><span class="action-btn" v-on:click="openModal(order.payment.id)">Edit</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    
+
+        <div id="myModal" class="modal">
+            <div class="modal-content">
+                <span class="close" v-on:click="closeModal()">&times;</span>
+                <h2>Edit Payment</h2>
+               
+                    <label>Date:<br>
+                        <input type="date" name="date" v-model="input.date">
+                    </label><br><br>
+                    <label>Payment Status :<br>
+                        <select id="payment_status" name="payment_status" v-model="input.payment_status">
+                            <option selected>Select for the payment status</option>
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
+                            <option value="failed">Failed</option>
+                        </select>
+                    </label><br><br>
+                    <button v-on:click="updatePayment(input.payment_id, input.payment_status)">Save Changes</button>
+               
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+    <script>
+         var app = new Vue({
+            el: '#app',
+            data: {
+                input: {
+                    payment_status: null,
+                    payment_id: null,
+                    date: null
+                },
+                orders: []
+            },
+            created(){
+                this.getOrder()
+            },
+            methods: {
+                getOrder(){
+                    fetch("http://localhost:3000/order", {
+                        method: 'GET'
+                    })
+                    .then((response) => response.text())
+                    .then((result) => {
+                        const data = JSON.parse(result)
+                        this.orders = data
+                    })
+                    .catch((error) => console.error(error));
+                },
+                openModal(payment_id) {
+                    this.input.payment_id = payment_id
+                    document.getElementById('myModal').style.display = 'block';
+                },
+                updatePayment(id, status){
+                    fetch("http://localhost:3000/payments/" + id, {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            date: this.input.date,
+                            status
+                        })
+                    })
+                    .then((response) => {
+                        if (response.status == 201) {
+                            alert('Payment is updated')
+                            this.input = {
+                                payment_status: null,
+                                payment_id: null,
+                                date: null
+                            }
+                        }
+                        document.getElementById('myModal').style.display = 'none';
+                        this.getOrder()
+                    })
+                    .catch((error) => console.error(error));
+                },
+                closeModal() {
+                    this.input = {
+                        payment_status: null,
+                        payment_id: null,
+                        date: null
+                    }
+                    document.getElementById('myModal').style.display = 'none';
+                }
+            }
+         })
+
+         window.onclick = function(event) {
+            const modal = document.getElementById('myModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>
